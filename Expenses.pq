@@ -1,15 +1,16 @@
 let
     HelpersLocal = try Helpers otherwise null,
-    HelpersRecord = if HelpersLocal <> null then HelpersLocal else (try Expression.Evaluate(Text.FromBinary(Web.Contents("https://raw.githubusercontent.com/jeanmarieletallec/Harvest/main/Helpers.pq")), #shared) otherwise null),
+    FetchRemoteHelpers = () => Expression.Evaluate(Text.FromBinary(Web.Contents("https://raw.githubusercontent.com/jeanmarieletallec/Harvest/main/Helpers.pq")), #shared),
+    HelpersRecord = if HelpersLocal <> null then HelpersLocal else (try FetchRemoteHelpers() otherwise null),
     fetch = (p) => fnGetExpenses(p),
-    all = if (HelpersRecord <> null and Record.HasFields(HelpersRecord, "FetchAllPages")) then HelpersRecord[FetchAllPages](fetch) else error "Helpers.FetchAllPages not found - import Helpers or enable remote fetch",
+     all = if (HelpersRecord <> null and Record.HasFields(HelpersRecord, "FetchAllPages")) then HelpersRecord[FetchAllPages](fetch) else error "Helpers.FetchAllPages not found - import Helpers or enable remote fetch",
     // The FetchAllPages helper returns a combined table directly (not wrapped in a Column1 column)
     // Use the returned table as-is
     // The helper returns a combined table; make renames tolerant to missing columns
     RenameIfExists = (tbl as table, oldName as text, newName as text) as table =>
         if List.Contains(Table.ColumnNames(tbl), oldName) then Table.RenameColumns(tbl, {{oldName, newName}}) else tbl,
 
-    combined = all,
+     combined = all,
     filtered = Table.SelectRows(combined, each Record.FieldValues(_){0} <> null and Record.FieldValues(_){0} <> ""),
     step1 = RenameIfExists(filtered, "id", "Expense_id"),
     step2 = RenameIfExists(step1, "notes", "Expense_notes"),
