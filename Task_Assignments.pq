@@ -1,7 +1,8 @@
 let
-    AddFunctionCall=List.Generate(()=>[Page Number=0,Func=null], each (try _[Func])[HasError]=false, each [Page Number=_[Page Number]+1, Func=fnGetTaskAssignments([Page Number]+1)], each _[Func]),
-    #"Converted to Table" = Table.FromList(AddFunctionCall, Splitter.SplitByNothing(), null, null, ExtraValues.Error),
-    #"Column1 développé" = Table.ExpandTableColumn(#"Converted to Table", "Column1", {"id", "billable", "is_active", "created_at", "updated_at", "hourly_rate", "budget", "project", "task"}, {"id", "billable", "is_active", "created_at", "updated_at", "hourly_rate", "budget", "project", "task"}),
+    HelpersRecord = try Expression.Evaluate(Text.FromBinary(Web.Contents("https://raw.githubusercontent.com/jeanmarieletallec/Harvest/main/Helpers.pq")), #shared) otherwise null,
+    fetch = (p) => fnGetTaskAssignments(p),
+    all = if (HelpersRecord <> null and Record.HasFields(HelpersRecord, "FetchAllPages")) then HelpersRecord[FetchAllPages](fetch) else error "Helpers.FetchAllPages not found - import Helpers or enable remote fetch",
+    #"Column1 développé" = Table.ExpandTableColumn(all, "Column1", {"id", "billable", "is_active", "created_at", "updated_at", "hourly_rate", "budget", "project", "task"}, {"id", "billable", "is_active", "created_at", "updated_at", "hourly_rate", "budget", "project", "task"}),
     #"Lignes filtrées" = Table.SelectRows(#"Column1 développé", each [id] <> null and [id] <> ""),
     #"project développé" = Table.ExpandRecordColumn(#"Lignes filtrées", "project", {"id", "name", "code"}, {"project.id", "project.name", "project.code"}),
     #"Colonnes renommées" = Table.RenameColumns(#"project développé",{{"project.id", "project_id"}, {"project.name", "project_name"}, {"project.code", "project_code"}}),
