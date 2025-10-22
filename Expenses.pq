@@ -2,7 +2,9 @@ let
     HelpersRecord = try Expression.Evaluate(Text.FromBinary(Web.Contents("https://raw.githubusercontent.com/jeanmarieletallec/Harvest/main/Helpers.pq")), #shared) otherwise null,
     fetch = (p) => fnGetExpenses(p),
     all = if (HelpersRecord <> null and Record.HasFields(HelpersRecord, "FetchAllPages")) then HelpersRecord[FetchAllPages](fetch) else error "Helpers.FetchAllPages not found - import Helpers or enable remote fetch",
-    #"Expanded Column1" = Table.ExpandTableColumn(all, "Column1", {"id", "spent_date", "notes", "total_cost", "units", "billable", "receipt", "is_closed", "is_locked", "is_billed", "locked_reason", "created_at", "updated_at", "id.1", "name", "id.2", "name.1", "currency", "id.3", "name.2", "code", "id.4", "name.3", "unit_price", "unit_name", "id.5", "is_project_manager", "is_active", "budget", "created_at.1", "updated_at.1", "hourly_rate", "id.6", "number"}, {"id", "spent_date", "notes", "total_cost", "units", "billable", "receipt", "is_closed", "is_locked", "is_billed", "locked_reason", "created_at", "updated_at", "id.1", "name", "id.2", "name.1", "currency", "id.3", "name.2", "code", "id.4", "name.3", "unit_price", "unit_name", "id.5", "is_project_manager", "is_active", "budget", "created_at.1", "updated_at.1", "hourly_rate", "id.6", "number"}),
+    // The FetchAllPages helper returns a combined table directly (not wrapped in a Column1 column)
+    // Use the returned table as-is
+    #"Expanded Column1" = all,
     #"Lignes filtrées" = Table.SelectRows(#"Expanded Column1", each [id] <> null and [id] <> ""),
     #"Colonnes renommées" = Table.RenameColumns(#"Lignes filtrées",{{"id", "Expense_id"}, {"notes", "Expense_notes"}, {"total_cost", "Expense_cost"}, {"units", "Expense_units"}}),
     #"receipt développé" = Table.ExpandRecordColumn(#"Colonnes renommées", "receipt", {"file_name"}, {"receipt.file_name"}),
