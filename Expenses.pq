@@ -4,13 +4,24 @@ let
     all = if (HelpersRecord <> null and Record.HasFields(HelpersRecord, "FetchAllPages")) then HelpersRecord[FetchAllPages](fetch) else error "Helpers.FetchAllPages not found - import Helpers or enable remote fetch",
     // The FetchAllPages helper returns a combined table directly (not wrapped in a Column1 column)
     // Use the returned table as-is
-    #"Expanded Column1" = all,
-    #"Lignes filtrées" = Table.SelectRows(#"Expanded Column1", each [id] <> null and [id] <> ""),
-    #"Colonnes renommées" = Table.RenameColumns(#"Lignes filtrées",{{"id", "Expense_id"}, {"notes", "Expense_notes"}, {"total_cost", "Expense_cost"}, {"units", "Expense_units"}}),
-    #"receipt développé" = Table.ExpandRecordColumn(#"Colonnes renommées", "receipt", {"file_name"}, {"receipt.file_name"}),
-    #"Colonnes renommées1" = Table.RenameColumns(#"receipt développé",{{"receipt.file_name", "receipt_file_name"}, {"id.2", "Client_id"}, {"name.1", "Client_name"}, {"id.3", "Project_id"}, {"name.2", "Project_name"}, {"code", "Project_code"}, {"name.3", "ExpenseCat_name"}, {"id.4", "ExpenseCat_id"}, {"id.5", "Project_user_id"}, {"created_at.1", "Project_user_created"}, {"updated_at.1", "Project_user_updated"}, {"id.6", "Invoice_id"}, {"number", "Invoice_number"}}),
-    #"Type modifié" = Table.TransformColumnTypes(#"Colonnes renommées1",{{"Expense_id", Int64.Type}, {"spent_date", type date}, {"Expense_notes", type text}, {"Expense_cost", type number}, {"Expense_units", type number}, {"billable", type logical}, {"receipt_file_name", type text}, {"is_closed", type logical}, {"is_locked", type logical}, {"is_billed", type logical}, {"locked_reason", type text}, {"created_at", type datetime}, {"updated_at", type datetime}}),
-    #"Colonnes renommées2" = Table.RenameColumns(#"Type modifié",{{"id.1", "User_id"}, {"name", "User_name"}}),
-    #"Type modifié1" = Table.TransformColumnTypes(#"Colonnes renommées2",{{"User_id", Int64.Type}, {"User_name", type text}, {"Client_id", Int64.Type}, {"Client_name", type text}, {"currency", type text}, {"Project_id", type text}, {"Project_name", type text}, {"Project_code", type text}, {"ExpenseCat_id", Int64.Type}, {"ExpenseCat_name", type text}, {"unit_price", type number}, {"unit_name", type text}, {"Project_user_id", Int64.Type}, {"is_project_manager", type logical}, {"is_active", type logical}, {"budget", type number}, {"Project_user_created", type datetime}, {"Project_user_updated", type datetime}, {"hourly_rate", type number}, {"Invoice_id", Int64.Type}, {"Invoice_number", type text}})
+    // The helper returns a combined table; make renames tolerant to missing columns
+    RenameIfExists = (tbl as table, oldName as text, newName as text) as table =>
+        if List.Contains(Table.ColumnNames(tbl), oldName) then Table.RenameColumns(tbl, {{oldName, newName}}) else tbl,
+
+    combined = all,
+    filtered = Table.SelectRows(combined, each Record.FieldValues(_){0} <> null and Record.FieldValues(_){0} <> ""),
+    step1 = RenameIfExists(filtered, "id", "Expense_id"),
+    step2 = RenameIfExists(step1, "notes", "Expense_notes"),
+    step3 = RenameIfExists(step2, "amount", "Expense_cost"),
+    step4 = RenameIfExists(step3, "hours", "Expense_hours"),
+    // rename nested entity ids/names if present
+    step5 = RenameIfExists(step4, "user_id", "User_id"),
+    step6 = RenameIfExists(step5, "user_name", "User_name"),
+    step7 = RenameIfExists(step6, "client_id", "Client_id"),
+    step8 = RenameIfExists(step7, "client_name", "Client_name"),
+    step9 = RenameIfExists(step8, "project_id", "Project_id"),
+    step10 = RenameIfExists(step9, "project_name", "Project_name"),
+    // final type conversions for common columns (only if they exist)
+    TypeConvert = Table.TransformColumnTypes(step10, List.Select({{"Expense_id", Int64.Type}, {"spent_date", type date}, {"Expense_notes", type text}, {"Expense_cost", type number}, {"Expense_hours", type number}, {"billable", type logical}, {"is_closed", type logical}, {"is_billed", type logical}, {"created_at", type datetime}, {"updated_at", type datetime}, {"User_id", Int64.Type}, {"User_name", type text}, {"Client_id", Int64.Type}, {"Client_name", type text}, {"Project_id", type text}, {"Project_name", type text}}, each List.Contains(Table.ColumnNames(step10), _{0})) )
 in
-    #"Type modifié1"
+    TypeConvert
