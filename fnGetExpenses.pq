@@ -1,17 +1,20 @@
 let
-    AddFunctionCall=List.Generate(()=>[Page Number=0,Func=null], each (try _[Func])[HasError]=false, each [Page Number=_[Page Number]+1, Func=fnGetInvoices([Page Number]+1)], each _[Func]),
-    #"Converted to Table" = Table.FromList(AddFunctionCall, Splitter.SplitByNothing(), null, null, ExtraValues.Error),
-    #"Expanded Column1" = Table.ExpandTableColumn(#"Converted to Table", "Column1", {"id", "client_key", "number", "purchase_order", "amount", "due_amount", "tax", "tax_amount", "tax2", "tax2_amount", "discount", "discount_amount", "subject", "notes", "state", "period_start", "period_end", "issue_date", "due_date", "payment_term", "sent_at", "paid_at", "closed_at", "created_at", "updated_at", "paid_date", "currency", "client", "estimate", "retainer", "id.1", "name", "line_items"}, {"id", "client_key", "number", "purchase_order", "amount", "due_amount", "tax", "tax_amount", "tax2", "tax2_amount", "discount", "discount_amount", "subject", "notes", "state", "period_start", "period_end", "issue_date", "due_date", "payment_term", "sent_at", "paid_at", "closed_at", "created_at", "updated_at", "paid_date", "currency", "client", "estimate", "retainer", "id.1", "name", "line_items"}),
-    #"Lignes filtrées" = Table.SelectRows(#"Expanded Column1", each [id] <> null and [id] <> ""),
-    #"Colonnes renommées" = Table.RenameColumns(#"Lignes filtrées",{{"id", "Invoice_id"}, {"number", "Invoice_number"}}),
-    #"client développé" = Table.ExpandRecordColumn(#"Colonnes renommées", "client", {"id", "name"}, {"client.id", "client.name"}),
-    #"Colonnes renommées1" = Table.RenameColumns(#"client développé",{{"client.id", "client_id"}, {"client.name", "client_name"}, {"id.1", "User_id"}, {"name", "User_name"}}),
-    #"Type modifié" = Table.TransformColumnTypes(#"Colonnes renommées1",{{"Invoice_id", Int64.Type}, {"client_key", type text}, {"Invoice_number", type text}, {"purchase_order", type text}, {"amount", type number}, {"due_amount", type number}, {"tax", type number}, {"tax_amount", type number}, {"tax2", type number}, {"tax2_amount", type number}, {"discount", type number}, {"discount_amount", type number}, {"subject", type text}, {"notes", type text}, {"period_start", type date}, {"period_end", type date}, {"issue_date", type date}, {"due_date", type date}, {"sent_at", type datetime}, {"paid_at", type datetime}, {"closed_at", type datetime}, {"created_at", type datetime}, {"updated_at", type datetime}, {"paid_date", type datetime}, {"currency", type text}, {"client_id", Int64.Type}, {"client_name", type text}, {"estimate", type number}, {"retainer", type number}, {"User_id", Int64.Type}, {"User_name", type text}}),
-    #"line_items développé" = Table.ExpandListColumn(#"Type modifié", "line_items"),
-    #"line_items développé1" = Table.ExpandRecordColumn(#"line_items développé", "line_items", {"id", "kind", "description", "quantity", "unit_price", "amount", "taxed", "taxed2", "project"}, {"id", "kind", "description", "quantity", "unit_price", "amount.1", "taxed", "taxed2", "project"}),
-    #"Colonnes renommées2" = Table.RenameColumns(#"line_items développé1",{{"id", "Line_item_id"}, {"kind", "Line_item_kind"}, {"description", "Line_item_description"}, {"quantity", "Line_item_quantity"}, {"unit_price", "Line_item_unit_price"}, {"amount.1", "Line_item_amount"}}),
-    #"project développé" = Table.ExpandRecordColumn(#"Colonnes renommées2", "project", {"id", "name", "code"}, {"id", "name", "code"}),
-    #"Colonnes renommées3" = Table.RenameColumns(#"project développé",{{"id", "Project_id"}, {"name", "Project_name"}, {"code", "Project_code"}}),
-    #"Type modifié1" = Table.TransformColumnTypes(#"Colonnes renommées3",{{"Line_item_id", Int64.Type}, {"Line_item_kind", type text}, {"Line_item_description", type text}, {"Line_item_quantity", type number}, {"Line_item_unit_price", type number}, {"Line_item_amount", type number}, {"taxed", type logical}, {"taxed2", type logical}, {"Project_id", type text}, {"Project_name", type text}, {"Project_code", type text}})
+    Source = (page as number) as table =>
+let
+     apiUrl = "https://api.harvestapp.com/api/v2/expenses?page=" & Number.ToText(page),
+     options = [Headers =[#"User-Agent"=User_Agent,#"Harvest-Account-ID"=Harvest_Account_ID, #"Authorization"=Authorization]],
+     result = Web.Contents(apiUrl , options),
+    #"Imported JSON" = Json.Document(result,65001),
+    Expenses = #"Imported JSON"[expenses],
+    #"Converted to Table" = Table.FromList(Expenses, Splitter.SplitByNothing(), null, null, ExtraValues.Error),
+    #"Column1 développé" = Table.ExpandRecordColumn(#"Converted to Table", "Column1", {"id", "spent_date", "notes", "total_cost", "units", "billable", "receipt", "is_closed", "is_locked", "is_billed", "locked_reason", "created_at", "updated_at", "user", "client", "project", "expense_category", "user_assignment", "invoice"}, {"id", "spent_date", "notes", "total_cost", "units", "billable", "receipt", "is_closed", "is_locked", "is_billed", "locked_reason", "created_at", "updated_at", "user", "client", "project", "expense_category", "user_assignment", "invoice"}),
+    #"user développé" = Table.ExpandRecordColumn(#"Column1 développé", "user", {"id", "name"}, {"id.1", "name"}),
+    #"client développé" = Table.ExpandRecordColumn(#"user développé", "client", {"id", "name", "currency"}, {"id.2", "name.1", "currency"}),
+    #"project développé" = Table.ExpandRecordColumn(#"client développé", "project", {"id", "name", "code"}, {"id.3", "name.2", "code"}),
+    #"expense_category développé" = Table.ExpandRecordColumn(#"project développé", "expense_category", {"id", "name", "unit_price", "unit_name"}, {"id.4", "name.3", "unit_price", "unit_name"}),
+    #"user_assignment développé" = Table.ExpandRecordColumn(#"expense_category développé", "user_assignment", {"id", "is_project_manager", "is_active", "budget", "created_at", "updated_at", "hourly_rate"}, {"id.5", "is_project_manager", "is_active", "budget", "created_at.1", "updated_at.1", "hourly_rate"}),
+    #"invoice développé" = Table.ExpandRecordColumn(#"user_assignment développé", "invoice", {"id", "number"}, {"id.6", "number"})
 in
-    #"Type modifié1"
+    #"invoice développé"
+in
+    Source
