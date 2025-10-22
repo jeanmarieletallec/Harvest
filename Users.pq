@@ -1,0 +1,11 @@
+let
+    AddFunctionCall=List.Generate(()=>[Page Number=0,Func=null], each (try _[Func])[HasError]=false, each [Page Number=_[Page Number]+1, Func=fnGetUsers([Page Number]+1)], each _[Func]),
+    #"Converted to Table" = Table.FromList(AddFunctionCall, Splitter.SplitByNothing(), null, null, ExtraValues.Error),
+    #"Expanded Column1" = Table.ExpandTableColumn(#"Converted to Table", "Column1", {"id", "first_name", "last_name", "email", "telephone", "timezone", "weekly_capacity", "has_access_to_all_future_projects", "is_contractor", "is_admin", "is_project_manager", "can_see_rates", "can_create_projects", "can_create_invoices", "is_active", "created_at", "updated_at", "default_hourly_rate", "cost_rate", "roles", "avatar_url", "name", "address", "currency"}, {"id", "first_name", "last_name", "email", "telephone", "timezone", "weekly_capacity", "has_access_to_all_future_projects", "is_contractor", "is_admin", "is_project_manager", "can_see_rates", "can_create_projects", "can_create_invoices", "is_active", "created_at", "updated_at", "default_hourly_rate", "cost_rate", "roles", "avatar_url", "name", "address", "currency"}),
+    #"Lignes filtrées" = Table.SelectRows(#"Expanded Column1", each [id] <> null and [id] <> ""),
+    #"Colonnes renommées" = Table.RenameColumns(#"Lignes filtrées",{{"id", "User_id"}}),
+    #"Type modifié" = Table.TransformColumnTypes(#"Colonnes renommées",{{"User_id", Int64.Type}, {"first_name", type text}, {"last_name", type text}, {"email", type text}, {"telephone", type text}, {"timezone", type text}, {"weekly_capacity", type number}, {"has_access_to_all_future_projects", type logical}, {"is_contractor", type logical}, {"is_admin", type logical}, {"is_project_manager", type logical}, {"can_see_rates", type logical}, {"can_create_projects", type logical}, {"can_create_invoices", type logical}, {"is_active", type logical}, {"created_at", type datetime}, {"updated_at", type datetime}, {"default_hourly_rate", type number}, {"cost_rate", type number}}),
+    #"Valeurs extraites" = Table.TransformColumns(#"Type modifié", {"roles", each Text.Combine(List.Transform(_, Text.From), ";"), type text}),
+    #"Type modifié1" = Table.TransformColumnTypes(#"Valeurs extraites",{{"avatar_url", type text}, {"name", type text}, {"address", type text}, {"currency", type text}})
+in
+    #"Type modifié1"
