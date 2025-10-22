@@ -1,5 +1,6 @@
 let
-    HelpersRecord = try Expression.Evaluate(Text.FromBinary(Web.Contents("https://raw.githubusercontent.com/jeanmarieletallec/Harvest/main/Helpers.pq")), #shared) otherwise null,
+    HelpersLocal = try Helpers otherwise null,
+    HelpersRecord = if HelpersLocal <> null then HelpersLocal else (try Expression.Evaluate(Text.FromBinary(Web.Contents("https://raw.githubusercontent.com/jeanmarieletallec/Harvest/main/Helpers.pq")), #shared) otherwise null),
     fetch = (p) => fnGetProjects(p),
     all = if (HelpersRecord <> null and Record.HasFields(HelpersRecord, "FetchAllPages")) then HelpersRecord[FetchAllPages](fetch) else error "Helpers.FetchAllPages not found - import Helpers or enable remote fetch",
     // Ensure column names consistent
